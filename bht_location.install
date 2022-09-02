@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function bht_location_install($is_syncing) {
+  // Since the module alters node access grants it is required to rebuild
+  // node access after installation of the module.
+  node_access_rebuild(TRUE);
+}

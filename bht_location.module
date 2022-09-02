@@ -1,0 +1,354 @@
+<?php
+/**
+ * @file
+ * Main module file.
+ */
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_entity_field_storage_info().
+ */
+function bht_location_entity_field_storage_info(EntityTypeInterface $entity_type) {
+  if ($entity_type->id() === 'node') {
+    return bht_location_entity_bundle_field_info($entity_type, 'location', []);
+  }
+}
+
+/**
+ * Implements hook_node_grants().
+ *
+ * Assign bht_location grants to the appropriate users.
+ */
+function bht_location_node_grants($account, $op) {
+  $tier_levels[] = 0;
+
+  if ($op == 'update' && $account->id()) {
+    $tier_levels[] = $account->id();
+  }
+
+  $grants['bht_location'] = $tier_levels;
+
+  return $grants;
+}
+
+/**
+ * Implements hook_node_access_records_alter().
+ *
+ * Defines custom grants for the node location bundle. All users needs to be
+ * able to view the locations. The edit grant may only be given to the users
+ * referenced in the field therapist, they are not granted to delete the entity.
+ * Remark: create location is a permission defined in Drupal core permissions.
+ */
+function bht_location_node_access_records_alter(&$grants, \Drupal\node\NodeInterface $node) {
+  if ($node->bundle() == 'location') {
+    // Default view grants.
+    $grants[] = [
+      'realm' => 'bht_location',
+      'gid' => 0,
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+      'priority' => 0,
+    ];
+
+    // Limit the list to users that are active members.
+    $user_references = $node->get('therapist')->filter(function($item) {
+      $target_id = $item->getValue()['target_id'];
+      /* @var $target_entity \Drupal\user\UserInterface */
+      $target_entity = \Drupal::entityTypeManager()
+        ->getStorage('user')
+        ->load($target_id);
+      return $target_entity->hasRole('member');
+    })->getValue();
+
+    // Define grants for the related active members to edit the location.
+    if ($user_references) {
+      foreach ($user_references as $user_reference) {
+        if (array_search($user_reference['target_id'], array_column($grants, 'gid')) === FALSE) {
+          $grants[] = [
+            'realm' => 'bht_location',
+            'gid' => $user_reference['target_id'],
+            'grant_view' => 1,
+            'grant_update' => 1,
+            'grant_delete' => 0,
+            'priority' => 0,
+          ];
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_presave().
+ *
+ * Members creating or editing a location needs to be referenced in the field
+ * field_therapist. The member has no permission to view the therapist field, so
+ * we have to ensure the user is added to the entity reference field.
+ * At the same time we check if all referenced users are still active members,
+ * when the referenced users do not have the membership role they are filtered
+ * out from the references in the field.
+ * Remark: webadmin and administrators needs to be able to
+ */
+function bht_location_node_presave(NodeInterface $entity) {
+  if ($entity->bundle() == 'location') {
+    // Limit the entity reference list to only active members.
+    $entity->get('therapist')->filter(function ($item) {
+      $target_id = $item->getValue()['target_id'];
+      /* @var $target_entity \Drupal\user\UserInterface */
+      $target_entity = \Drupal::entityTypeManager()
+        ->getStorage('user')
+        ->load($target_id);
+      return $target_entity->hasRole('member');
+    });
+  }
+}
+
+/**
+ * Implements hook_entity_form_mode_alter().
+ */
+function bht_location_entity_form_mode_alter(&$form_mode, EntityInterface $entity) {
+  // A member needs to use a stripped down version of the edit form.
+  if ($entity instanceof NodeInterface && $entity->bundle('location') && in_array('member', \Drupal::currentUser()->getRoles()) && !in_array('webadmin', \Drupal::currentUser()->getRoles()) && !in_array('administrator', \Drupal::currentUser()->getRoles())) {
+    $form_mode = 'member';
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function bht_location_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'node_location_edit_form') {
+    if (in_array('member', \Drupal::currentUser()->getRoles()) && !in_array('webadmin', \Drupal::currentUser()->getRoles()) && !in_array('administrator', \Drupal::currentUser()->getRoles())) {
+      $form['actions']['submit']['#submit'][] = 'bht_location_add_user';
+    }
+  }
+}
+
+function bht_location_add_user(array $form, FormStateInterface $form_state) {
+  $node = $form_state->getFormObject()->getEntity();
+  $location = \Drupal::service('bht_location.entity_helper');
+  $location->setEntity($node);
+  $location->addUser();
+}
+
+/**
+ * Implements hook_entity_bundle_field_info().
+ */
+function bht_location_entity_bundle_field_info(EntityTypeInterface $entity_type, $bundle, array $base_field_definitions) {
+  $fields = [];
+
+  if ($entity_type->id() == 'node' && $bundle == 'location') {
+    $fields['remove_user'] = BaseFieldDefinition::create('string')
+      ->setLabel('Remove user')
+      ->setComputed(TRUE)
+      ->setClass('\Drupal\bht_location\FieldRemoveUser')
+      ->setDisplayConfigurable('view', TRUE)
+      ->setDisplayOptions('view', [
+        'label' => 'hidden',
+      ])
+      ->setTargetEntityTypeId($entity_type->id())
+      ->setTargetBundle($bundle)
+      ->setDisplayConfigurable('view', TRUE)
+      ->setDisplayConfigurable('form', FALSE);
+
+  }
+
+  $fields['phone'] = BaseFieldDefinition::create('telephone')
+    ->setName('phone')
+    ->setLabel('Phone')
+    ->setDisplayOptions('form', [
+      'label' => 'above',
+      'weight' => 0,
+    ])
+    ->setDisplayOptions('view', [
+      'label' => 'above',
+      'weight' => 0,
+    ])
+    ->setDisplayConfigurable('form', TRUE)
+    ->setDisplayConfigurable('view', TRUE);
+
+  $fields['mobile_phone'] = BaseFieldDefinition::create('telephone')
+    ->setName('mobile_phone')
+    ->setLabel('Mobile phone')
+    ->setDisplayOptions('form', [
+      'label' => 'above',
+      'weight' => 5,
+    ])
+    ->setDisplayOptions('view', [
+      'label' => 'above',
+      'weight' => 5,
+    ])
+    ->setDisplayConfigurable('form', TRUE)
+    ->setDisplayConfigurable('view', TRUE);
+
+  $fields['address'] = BaseFieldDefinition::create('address')
+    ->setName('address')
+    ->setLabel(t('Address'))
+    ->setDescription(t('The <em>locations address</em> information. This address information will be publicly shown on the <em>Find a therapist</em> page.'))
+    ->setSettings([
+      'fields' => [
+        'givenName' => FALSE,
+        'additionalName' => FALSE,
+        'familyName' => FALSE,
+        'organisation' => FALSE,
+        'addressLine1' => 'addressLine1',
+        'addressLine2' => FALSE,
+        'postalCode' => 'postalCode',
+        'sortingCode' => FALSE,
+        'dependentLocality' => FALSE,
+        'locality' => 'locality',
+        'administrativeArea' => FALSE,
+      ],
+      'default_value' => [
+        'langcode' => 'en',
+        'country_code' => 'BE',
+        'administrative_area' => NULL,
+        'locality' => '',
+        'dependent_locality' => NULL,
+        'postal_code' => '',
+        'sorting_code' => NULL,
+        'address_line1' => '',
+        'address_line2' => '',
+        'organisation' => '',
+        'given_name' => '',
+        'additional_name' => NULL,
+        'family_name' => '',
+      ],
+    ])
+    ->setDisplayOptions('view', array(
+      'label' => 'above',
+      'type' => 'address_default',
+      'weight' => 10,
+    ))
+    ->setDisplayOptions('form', array(
+      'type' => 'address_default',
+      'weight' => 10,
+    ))
+    ->setDisplayConfigurable('form', TRUE)
+    ->setDisplayConfigurable('view', TRUE);
+
+  $fields['geofield'] = BaseFieldDefinition::create('geofield')
+    ->setLabel('geofield')
+    ->setDefaultValue('')
+    ->setSettings([
+      'backend' => 'geofield_backend_default',
+      'geocoder_field' => [
+        'method' => 'geocode',
+        'field' => 'address',
+        'skip_not_empty_value' => FALSE,
+        'disabled' => FALSE,
+        'hidden' => TRUE,
+        'providers' => ['openstreetmap'],
+        'dumper' => 'wkt',
+        'delta_handling' => 'default',
+        'failure' => [
+          'handling' => 'preserve',
+          'status_message' => TRUE,
+          'log' => TRUE,
+        ],
+      ],
+    ])
+    ->setDisplayConfigurable('view', FALSE)
+    ->setDisplayConfigurable('form', TRUE);
+
+  $fields['email'] = BaseFieldDefinition::create('email')
+    ->setName('email')
+    ->setDescription(t('The locations public email address.'))
+    ->setDefaultValue('');
+
+  $fields['therapist'] = BaseFieldDefinition::create('entity_reference')
+    ->setName('therapist')
+    ->setLabel(t('Therapist'))
+    ->setDescription(t('The therapists working in this location.'))
+    ->setSettings([
+      'handler' => 'default',
+      'target_type' => 'user',
+      'sort' => ['field' => 'firstname', 'direction' => 'ASC'],
+      'auto_create' => FALSE,
+      'filter' => [
+        'type' => 'role',
+        'role' => ['member' => 'member', 'webadmin' => FALSE, 'administrator' => FALSE]
+      ],
+      'include_anonymous' => FALSE,
+    ])
+    ->setDisplayOptions('view', [
+      'label' => 'hidden',
+      'type' => 'author',
+      'weight' => 0,
+    ])
+    ->setDisplayOptions('form', [
+      'type' => 'entity_reference_autocomplete',
+      'weight' => 5,
+      'settings' => [
+        'match_operator' => 'CONTAINS',
+        'size' => '60',
+        'autocomplete_type' => 'tags',
+        'placeholder' => '',
+      ],
+    ])
+    ->setDisplayConfigurable('form', TRUE)
+    ->setDisplayConfigurable('view', TRUE)
+    ->setTranslatable(FALSE)
+    ->setRequired(FALSE);
+
+  return $fields;
+}
+
+/**
+ * Implements hook_overview_field_options_alter().
+ */
+function bht_location_overview_field_options_alter(&$options) {
+  $options['locations_map'] = t('Locations map');
+}
+
+/**
+ * Implements hook_overview_field_output_alter().
+ */
+function bht_location_overview_field_output_alter($key, array &$output) {
+  if ($key === 'locations_map') {
+    $output = overview_field_load_view('locations', 'map');
+  }
+}
+
+/**
+ * Implements hook_leaflet_map_info().
+ */
+function bht_location_leaflet_map_info() {
+  return [
+    'Carto Light' => [
+      'label' => 'Carto Light',
+      'description' => t('Carto light map.'),
+      'settings' => [
+        'dragging' => TRUE,
+        'touchZoom' => TRUE,
+        'scrollWheelZoom' => TRUE,
+        'doubleClickZoom' => TRUE,
+        'zoomControl' => TRUE,
+        'attributionControl' => TRUE,
+        'trackResize' => TRUE,
+        'fadeAnimation' => TRUE,
+        'zoomAnimation' => TRUE,
+        'closePopupOnClick' => TRUE,
+        'layerControl' => TRUE,
+        'layerControlOptions' => [
+          'position' => 'topright',
+        ],
+      ],
+      'layers' => [
+        'earth' => [
+          'urlTemplate' => 'https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png',
+          'options' => [
+            'attribution' => '© CARTO',
+          ],
+        ],
+      ],
+      'plugins' => [],
+    ],
+  ];
+}

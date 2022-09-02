@@ -1,0 +1,20 @@
+bht_location.autocomplete.locations:
+  path: '/bht_location/autocomplete/locations'
+  defaults:
+    _controller: '\Drupal\bht_location\Controller\LocationAutocompleteController::handleAutocomplete'
+    _format: json
+  requirements:
+    _permission: 'access content'
+
+bht_location.remove.user:
+  path: '/user/location/{node}/remove'
+  defaults:
+    _controller: '\Drupal\bht_location\Controller\LocationUsers::removeUserFromLocation'
+  options:
+    parameters:
+      node:
+        type: entity:node
+  requirements:
+    _permission: 'access content'
+    _user_is_logged_in: 'TRUE'
+    node: '[0-9]+'

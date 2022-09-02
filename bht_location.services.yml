@@ -1,0 +1,4 @@
+services:
+  bht_location.entity_helper:
+    class: Drupal\bht_location\LocationEntityHelper
+    arguments: ['@current_user', '@entity_type.manager', '@messenger']
