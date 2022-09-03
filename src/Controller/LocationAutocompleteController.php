@@ -59,13 +59,12 @@ class LocationAutocompleteController extends ControllerBase {
     /* @var $query \Drupal\Core\Database\Query */
     $query = $this->database->select('node', 'n');
     $query->join('node_field_data', 'nd', 'n.nid = nd.nid');
-    $query->join('node__field_address', 'na', 'n.nid = na.entity_id');
     $query->addField('n', 'nid');
     $condition = $query->orConditionGroup()
       ->condition('nd.title', "%$input%", 'LIKE')
-      ->condition('na.field_address_address_line1', "%$input%", 'LIKE')
-      ->condition('na.field_address_locality', "%$input%", 'LIKE')
-      ->condition('na.field_address_postal_code', "%$input%", 'LIKE');
+      ->condition('nd.address__address_line1', "%$input%", 'LIKE')
+      ->condition('nd.address__locality', "%$input%", 'LIKE')
+      ->condition('nd.address__postal_code', "%$input%", 'LIKE');
     $query->condition('n.type', 'location')
       ->condition($condition);
     $query->orderBy('nd.title', 'ASC');
@@ -76,7 +75,7 @@ class LocationAutocompleteController extends ControllerBase {
       ->loadMultiple($nids) : [];
 
     foreach ($nodes as $node) {
-      $address = $node->get('field_address')->get(0)->getValue();
+      $address = $node->get('address')->get(0)->getValue();
       $label = [
         $node->getTitle(),
         $address['address_line1'],
