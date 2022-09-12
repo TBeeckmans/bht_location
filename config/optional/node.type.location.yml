@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus: {  }
+    parent: ''
+name: Location
+type: location
+description: 'Location is used to define so called <em>BHT Centers</em>, identifying the places where our members work places.'
+help: ''
+new_revision: true
+preview_mode: 0
+display_submitted: false
