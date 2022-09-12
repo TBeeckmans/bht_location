@@ -1,9 +1,22 @@
 <?php
 
+use Drupal\user\Entity\Role;
+
 /**
  * Implements hook_install().
  */
 function bht_location_install($is_syncing) {
+  // The module requires additional grants to the member role.
+  $member_role = Role::load('member');
+
+  // Grant permissions to create job postings.
+  $member_role->grantPermission('create location content');
+  // Editing of job posting content should only be available to the members
+  // listed in the referenced bht location.
+
+  // Save grant changes to the member role.
+  $member_role->save();
+
   // Since the module alters node access grants it is required to rebuild
   // node access after installation of the module.
   node_access_rebuild(TRUE);
