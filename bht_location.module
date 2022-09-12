@@ -57,7 +57,7 @@ function bht_location_node_access_records_alter(&$grants, \Drupal\node\NodeInter
     ];
 
     // Limit the list to users that are active members.
-    $user_references = $node->get('therapist')->filter(function($item) {
+    $user_references = $node->get('therapist')->filter(function ($item) {
       $target_id = $item->getValue()['target_id'];
       /* @var $target_entity \Drupal\user\UserInterface */
       $target_entity = \Drupal::entityTypeManager()
@@ -114,7 +114,10 @@ function bht_location_node_presave(NodeInterface $entity) {
  */
 function bht_location_entity_form_mode_alter(&$form_mode, EntityInterface $entity) {
   // A member needs to use a stripped down version of the edit form.
-  if ($entity instanceof NodeInterface && $entity->bundle('location') && in_array('member', \Drupal::currentUser()->getRoles()) && !in_array('webadmin', \Drupal::currentUser()->getRoles()) && !in_array('administrator', \Drupal::currentUser()->getRoles())) {
+  if ($entity instanceof NodeInterface && $entity->bundle('location') && in_array('member', \Drupal::currentUser()
+      ->getRoles()) && !in_array('webadmin', \Drupal::currentUser()
+      ->getRoles()) && !in_array('administrator', \Drupal::currentUser()
+      ->getRoles())) {
     $form_mode = 'member';
   }
 }
@@ -124,7 +127,10 @@ function bht_location_entity_form_mode_alter(&$form_mode, EntityInterface $entit
  */
 function bht_location_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'node_location_edit_form') {
-    if (in_array('member', \Drupal::currentUser()->getRoles()) && !in_array('webadmin', \Drupal::currentUser()->getRoles()) && !in_array('administrator', \Drupal::currentUser()->getRoles())) {
+    if (in_array('member', \Drupal::currentUser()
+        ->getRoles()) && !in_array('webadmin', \Drupal::currentUser()
+        ->getRoles()) && !in_array('administrator', \Drupal::currentUser()
+        ->getRoles())) {
       $form['actions']['submit']['#submit'][] = 'bht_location_add_user';
     }
   }
@@ -157,145 +163,149 @@ function bht_location_entity_bundle_field_info(EntityTypeInterface $entity_type,
       ->setDisplayConfigurable('view', TRUE)
       ->setDisplayConfigurable('form', FALSE);
 
-  }
+    $fields['phone'] = BaseFieldDefinition::create('telephone')
+      ->setName('phone')
+      ->setLabel('Phone')
+      ->setDisplayOptions('form', [
+        'label' => 'above',
+        'weight' => 0,
+      ])
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'weight' => 0,
+      ])
+      ->setDisplayConfigurable('form', TRUE)
+      ->setDisplayConfigurable('view', TRUE);
 
-  $fields['phone'] = BaseFieldDefinition::create('telephone')
-    ->setName('phone')
-    ->setLabel('Phone')
-    ->setDisplayOptions('form', [
-      'label' => 'above',
-      'weight' => 0,
-    ])
-    ->setDisplayOptions('view', [
-      'label' => 'above',
-      'weight' => 0,
-    ])
-    ->setDisplayConfigurable('form', TRUE)
-    ->setDisplayConfigurable('view', TRUE);
+    $fields['mobile_phone'] = BaseFieldDefinition::create('telephone')
+      ->setName('mobile_phone')
+      ->setLabel('Mobile phone')
+      ->setDisplayOptions('form', [
+        'label' => 'above',
+        'weight' => 5,
+      ])
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'weight' => 5,
+      ])
+      ->setDisplayConfigurable('form', TRUE)
+      ->setDisplayConfigurable('view', TRUE);
 
-  $fields['mobile_phone'] = BaseFieldDefinition::create('telephone')
-    ->setName('mobile_phone')
-    ->setLabel('Mobile phone')
-    ->setDisplayOptions('form', [
-      'label' => 'above',
-      'weight' => 5,
-    ])
-    ->setDisplayOptions('view', [
-      'label' => 'above',
-      'weight' => 5,
-    ])
-    ->setDisplayConfigurable('form', TRUE)
-    ->setDisplayConfigurable('view', TRUE);
-
-  $fields['address'] = BaseFieldDefinition::create('address')
-    ->setName('address')
-    ->setLabel(t('Address'))
-    ->setDescription(t('The <em>locations address</em> information. This address information will be publicly shown on the <em>Find a therapist</em> page.'))
-    ->setSettings([
-      'fields' => [
-        'givenName' => FALSE,
-        'additionalName' => FALSE,
-        'familyName' => FALSE,
-        'organisation' => FALSE,
-        'addressLine1' => 'addressLine1',
-        'addressLine2' => FALSE,
-        'postalCode' => 'postalCode',
-        'sortingCode' => FALSE,
-        'dependentLocality' => FALSE,
-        'locality' => 'locality',
-        'administrativeArea' => FALSE,
-      ],
-      'default_value' => [
-        'langcode' => 'en',
-        'country_code' => 'BE',
-        'administrative_area' => NULL,
-        'locality' => '',
-        'dependent_locality' => NULL,
-        'postal_code' => '',
-        'sorting_code' => NULL,
-        'address_line1' => '',
-        'address_line2' => '',
-        'organisation' => '',
-        'given_name' => '',
-        'additional_name' => NULL,
-        'family_name' => '',
-      ],
-    ])
-    ->setDisplayOptions('view', array(
-      'label' => 'above',
-      'type' => 'address_default',
-      'weight' => 10,
-    ))
-    ->setDisplayOptions('form', array(
-      'type' => 'address_default',
-      'weight' => 10,
-    ))
-    ->setDisplayConfigurable('form', TRUE)
-    ->setDisplayConfigurable('view', TRUE);
-
-  $fields['geofield'] = BaseFieldDefinition::create('geofield')
-    ->setLabel('geofield')
-    ->setDefaultValue('')
-    ->setSettings([
-      'backend' => 'geofield_backend_default',
-      'geocoder_field' => [
-        'method' => 'geocode',
-        'field' => 'address',
-        'skip_not_empty_value' => FALSE,
-        'disabled' => FALSE,
-        'hidden' => TRUE,
-        'providers' => ['openstreetmap'],
-        'dumper' => 'wkt',
-        'delta_handling' => 'default',
-        'failure' => [
-          'handling' => 'preserve',
-          'status_message' => TRUE,
-          'log' => TRUE,
+    $fields['address'] = BaseFieldDefinition::create('address')
+      ->setName('address')
+      ->setLabel(t('Address'))
+      ->setDescription(t('The <em>locations address</em> information. This address information will be publicly shown on the <em>Find a therapist</em> page.'))
+      ->setSettings([
+        'fields' => [
+          'givenName' => FALSE,
+          'additionalName' => FALSE,
+          'familyName' => FALSE,
+          'organisation' => FALSE,
+          'addressLine1' => 'addressLine1',
+          'addressLine2' => FALSE,
+          'postalCode' => 'postalCode',
+          'sortingCode' => FALSE,
+          'dependentLocality' => FALSE,
+          'locality' => 'locality',
+          'administrativeArea' => FALSE,
         ],
-      ],
-    ])
-    ->setDisplayConfigurable('view', FALSE)
-    ->setDisplayConfigurable('form', TRUE);
+        'default_value' => [
+          'langcode' => 'en',
+          'country_code' => 'BE',
+          'administrative_area' => NULL,
+          'locality' => '',
+          'dependent_locality' => NULL,
+          'postal_code' => '',
+          'sorting_code' => NULL,
+          'address_line1' => '',
+          'address_line2' => '',
+          'organisation' => '',
+          'given_name' => '',
+          'additional_name' => NULL,
+          'family_name' => '',
+        ],
+      ])
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'address_default',
+        'weight' => 10,
+      ])
+      ->setDisplayOptions('form', [
+        'type' => 'address_default',
+        'weight' => 10,
+      ])
+      ->setDisplayConfigurable('form', TRUE)
+      ->setDisplayConfigurable('view', TRUE);
 
-  $fields['email'] = BaseFieldDefinition::create('email')
-    ->setName('email')
-    ->setDescription(t('The locations public email address.'))
-    ->setDefaultValue('');
+    $fields['geofield'] = BaseFieldDefinition::create('geofield')
+      ->setLabel('geofield')
+      ->setDefaultValue('')
+      ->setSettings([
+        'backend' => 'geofield_backend_default',
+        'geocoder_field' => [
+          'method' => 'geocode',
+          'field' => 'address',
+          'skip_not_empty_value' => FALSE,
+          'disabled' => FALSE,
+          'hidden' => TRUE,
+          'providers' => ['openstreetmap'],
+          'dumper' => 'wkt',
+          'delta_handling' => 'default',
+          'failure' => [
+            'handling' => 'preserve',
+            'status_message' => TRUE,
+            'log' => TRUE,
+          ],
+        ],
+      ])
+      ->setDisplayConfigurable('view', FALSE)
+      ->setDisplayConfigurable('form', TRUE);
 
-  $fields['therapist'] = BaseFieldDefinition::create('entity_reference')
-    ->setName('therapist')
-    ->setLabel(t('Therapist'))
-    ->setDescription(t('The therapists working in this location.'))
-    ->setSettings([
-      'handler' => 'default',
-      'target_type' => 'user',
-      'sort' => ['field' => 'firstname', 'direction' => 'ASC'],
-      'auto_create' => FALSE,
-      'filter' => [
-        'type' => 'role',
-        'role' => ['member' => 'member', 'webadmin' => FALSE, 'administrator' => FALSE]
-      ],
-      'include_anonymous' => FALSE,
-    ])
-    ->setDisplayOptions('view', [
-      'label' => 'hidden',
-      'type' => 'author',
-      'weight' => 0,
-    ])
-    ->setDisplayOptions('form', [
-      'type' => 'entity_reference_autocomplete',
-      'weight' => 5,
-      'settings' => [
-        'match_operator' => 'CONTAINS',
-        'size' => '60',
-        'autocomplete_type' => 'tags',
-        'placeholder' => '',
-      ],
-    ])
-    ->setDisplayConfigurable('form', TRUE)
-    ->setDisplayConfigurable('view', TRUE)
-    ->setTranslatable(FALSE)
-    ->setRequired(FALSE);
+    $fields['email'] = BaseFieldDefinition::create('email')
+      ->setName('email')
+      ->setDescription(t('The locations public email address.'))
+      ->setDefaultValue('');
+
+    $fields['therapist'] = BaseFieldDefinition::create('entity_reference')
+      ->setName('therapist')
+      ->setLabel(t('Therapist'))
+      ->setDescription(t('The therapists working in this location.'))
+      ->setSettings([
+        'handler' => 'default',
+        'target_type' => 'user',
+        'sort' => ['field' => 'firstname', 'direction' => 'ASC'],
+        'auto_create' => FALSE,
+        'filter' => [
+          'type' => 'role',
+          'role' => [
+            'member' => 'member',
+            'webadmin' => FALSE,
+            'administrator' => FALSE,
+          ],
+        ],
+        'include_anonymous' => FALSE,
+      ])
+      ->setDisplayOptions('view', [
+        'label' => 'hidden',
+        'type' => 'author',
+        'weight' => 0,
+      ])
+      ->setDisplayOptions('form', [
+        'type' => 'entity_reference_autocomplete',
+        'weight' => 5,
+        'settings' => [
+          'match_operator' => 'CONTAINS',
+          'size' => '60',
+          'autocomplete_type' => 'tags',
+          'placeholder' => '',
+        ],
+      ])
+      ->setDisplayConfigurable('form', TRUE)
+      ->setDisplayConfigurable('view', TRUE)
+      ->setTranslatable(FALSE)
+      ->setRequired(FALSE);
+
+  }
 
   return $fields;
 }
